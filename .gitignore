@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.next/
+.expo/
+*.log
+.env
+.env.local
+.env.production
+*.tsbuildinfo
+coverage/
+.DS_Store
+*.sqlite
+postgres-data/
+redis-data/

@@ -1,0 +1,33 @@
+{
+  "name": "worldbid",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WorldBid — The Global Country Competition Platform",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @worldbid/api dev\" \"pnpm --filter @worldbid/mobile dev\"",
+    "dev:api": "pnpm --filter @worldbid/api dev",
+    "dev:mobile": "pnpm --filter @worldbid/mobile dev",
+    "dev:admin": "pnpm --filter @worldbid/admin dev",
+    "build": "pnpm --filter @worldbid/types build && pnpm --filter @worldbid/validation build && pnpm --filter @worldbid/api build && pnpm --filter @worldbid/admin build",
+    "test": "pnpm --filter @worldbid/api test",
+    "lint": "pnpm -r lint",
+    "db:migrate": "pnpm --filter @worldbid/api db:migrate",
+    "db:seed": "pnpm --filter @worldbid/api db:seed",
+    "db:studio": "pnpm --filter @worldbid/api db:studio",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "setup": "pnpm install && pnpm docker:up && sleep 5 && pnpm db:migrate && pnpm db:seed"
+  },
+  "devDependencies": {
+    "@prisma/client": "5.22.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "prisma": "5.22.0",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

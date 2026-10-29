@@ -1,0 +1,249 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum BidStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ActivityType {
+  BID_PLACED
+  RANK_CHANGED
+  COUNTRY_OVERTAKEN
+  TOP_TEN_ENTRY
+  TOP_THREE_ENTRY
+  RANK_ONE_ACHIEVED
+}
+
+enum Continent {
+  Africa
+  Asia
+  Europe
+  North_America
+  South_America
+  Oceania
+  Antarctica
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  username      String   @unique
+  passwordHash  String?
+  avatar        String?
+  countryCode   String?  // ISO 3166-1 alpha-2
+  role          UserRole @default(USER)
+  isFrozen      Boolean  @default(false)
+  freezeReason  String?
+  googleId      String?  @unique
+  appleId       String?  @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bids           Bid[]
+  payments       Payment[]
+  countrySupport CountrySupport[]
+  activities     Activity[]
+  notifications  Notification[]
+
+  @@index([email])
+  @@index([username])
+  @@index([googleId])
+  @@index([appleId])
+  @@map("users")
+}
+
+// ─── Country ──────────────────────────────────────────────────────────────────
+
+model Country {
+  id            String    @id @default(uuid())
+  name          String    @unique
+  officialName  String
+  isoCode       String    @unique // ISO 3166-1 alpha-2 (2-letter)
+  iso3Code      String    @unique // ISO 3166-1 alpha-3 (3-letter)
+  flag          String    // Unicode emoji flag
+  continent     Continent
+  currency      String    @default("USD")
+  description   String?
+  totalSupport  Float     @default(0)
+  currentBid    Float     @default(0)
+  rank          Int       @default(0)
+  previousRank  Int?
+  supporterCount Int      @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  bids              Bid[]
+  countrySupport    CountrySupport[]
+  activities        Activity[]
+  leaderboardSnapshots LeaderboardSnapshot[]
+
+  @@index([rank])
+  @@index([totalSupport])
+  @@index([isoCode])
+  @@index([continent])
+  @@map("countries")
+}
+
+// ─── Bid ──────────────────────────────────────────────────────────────────────
+
+model Bid {
+  id              String    @id @default(uuid())
+  userId          String
+  countryId       String
+  amount          Float
+  currency        String    @default("USD")
+  status          BidStatus @default(PENDING)
+  transactionId   String?
+  idempotencyKey  String    @unique
+  createdAt       DateTime  @default(now())
+
+  user     User     @relation(fields: [userId], references: [id])
+  country  Country  @relation(fields: [countryId], references: [id])
+  payment  Payment?
+
+  @@index([userId])
+  @@index([countryId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([idempotencyKey])
+  @@map("bids")
+}
+
+// ─── Payment ──────────────────────────────────────────────────────────────────
+
+model Payment {
+  id                String        @id @default(uuid())
+  userId            String
+  bidId             String?       @unique
+  provider          String        // mock | stripe | paypal
+  providerPaymentId String?
+  amount            Float
+  currency          String        @default("USD")
+  status            PaymentStatus @default(PENDING)
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+  bid  Bid?  @relation(fields: [bidId], references: [id])
+
+  @@index([userId])
+  @@index([bidId])
+  @@index([status])
+  @@index([providerPaymentId])
+  @@map("payments")
+}
+
+// ─── CountrySupport ───────────────────────────────────────────────────────────
+
+model CountrySupport {
+  id          String   @id @default(uuid())
+  userId      String
+  countryId   String
+  totalAmount Float    @default(0)
+  bidsCount   Int      @default(0)
+  lastBidAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  country Country @relation(fields: [countryId], references: [id])
+
+  @@unique([userId, countryId])
+  @@index([userId])
+  @@index([countryId])
+  @@index([totalAmount])
+  @@map("country_support")
+}
+
+// ─── LeaderboardSnapshot ──────────────────────────────────────────────────────
+
+model LeaderboardSnapshot {
+  id           String   @id @default(uuid())
+  countryId    String
+  rank         Int
+  totalSupport Float
+  currentBid   Float
+  snapshotAt   DateTime @default(now())
+
+  country Country @relation(fields: [countryId], references: [id])
+
+  @@index([countryId])
+  @@index([snapshotAt])
+  @@index([countryId, snapshotAt])
+  @@map("leaderboard_snapshots")
+}
+
+// ─── Activity ─────────────────────────────────────────────────────────────────
+
+model Activity {
+  id               String       @id @default(uuid())
+  type             ActivityType
+  countryId        String
+  userId           String?
+  amount           Float?
+  previousRank     Int?
+  newRank          Int?
+  relatedCountryId String?
+  metadata         Json?
+  createdAt        DateTime     @default(now())
+
+  country Country @relation(fields: [countryId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([countryId])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("activities")
+}
+
+// ─── Notification ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  type      String
+  data      Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
